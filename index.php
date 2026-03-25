@@ -1,0 +1,682 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NexusChain — Web3 Platform</title>
+  <link rel="icon"  href="favicon.jpg">
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css">
+</head>
+
+
+<body>
+
+  <div class="grid-bg"></div>
+
+
+
+  <!-- Toggle button -->
+  <button id="toggle-btn" onclick="togglePanel()">
+    <span class="arrow" id="arrow-icon">◀</span>
+    <span class="label">Rates</span>
+  </button>
+
+  <!-- Side Panel -->
+  <div id="side-panel">
+
+    <!-- Header -->
+    <div class="panel-header">
+      <div class="panel-title-row">
+        <span class="panel-title">⚡ Crypto Tracker</span>
+        <span class="live-badge"><span class="live-dot"></span> Live</span>
+      </div>
+      <div class="wallet-row">
+        <button id="connect-btn" onclick="connectWallet()">
+          <span>🦊</span> <span id="btn-text">Connect MetaMask</span>
+        </button>
+        <span class="eth-balance" id="eth-balance"></span>
+      </div>
+    </div>
+
+    <!-- Tabs -->
+    <div class="tabs">
+      <div class="tab active" onclick="switchTab('market')">Market</div>
+      <div class="tab" onclick="switchTab('portfolio')">Portfolio</div>
+      <div class="tab" onclick="switchTab('alerts')">Alerts</div>
+    </div>
+
+    <!-- Body -->
+    <div class="panel-body">
+
+      <!-- MARKET TAB -->
+      <div class="tab-content active" id="tab-market">
+        <!-- Crypto cards injected by JS -->
+      </div>
+
+      <!-- PORTFOLIO TAB -->
+      <div class="tab-content" id="tab-portfolio">
+        <div class="portfolio-summary">
+          <div class="port-label">Total Portfolio Value</div>
+          <div class="port-value" id="port-total">—</div>
+          <div class="port-pnl" id="port-pnl">Connect wallet to see P&L</div>
+        </div>
+        <div id="port-holdings"></div>
+      </div>
+
+      <!-- ALERTS TAB -->
+      <div class="tab-content" id="tab-alerts">
+        <div class="alert-item">
+          <div class="alert-icon">🔔</div>
+          <div class="alert-body">
+            <div class="alert-title">BTC crossed $100K</div>
+            <div class="alert-desc">Bitcoin broke the $100,000 resistance level</div>
+          </div>
+          <div class="alert-time">2m ago</div>
+        </div>
+        <div class="alert-item">
+          <div class="alert-icon">📉</div>
+          <div class="alert-body">
+            <div class="alert-title">ETH down 4.2%</div>
+            <div class="alert-desc">Ethereum dropped below $3,200 support</div>
+          </div>
+          <div class="alert-time">14m ago</div>
+        </div>
+        <div class="alert-item">
+          <div class="alert-icon">⚡</div>
+          <div class="alert-body">
+            <div class="alert-title">SOL surging</div>
+            <div class="alert-desc">Solana up 8.3% in the last hour</div>
+          </div>
+          <div class="alert-time">31m ago</div>
+        </div>
+        <div class="alert-item">
+          <div class="alert-icon">🐳</div>
+          <div class="alert-body">
+            <div class="alert-title">Whale alert: BNB</div>
+            <div class="alert-desc">10,000 BNB moved to exchange wallet</div>
+          </div>
+          <div class="alert-time">1h ago</div>
+        </div>
+        <div class="alert-item">
+          <div class="alert-icon">✅</div>
+          <div class="alert-body">
+            <div class="alert-title">Portfolio +12.4%</div>
+            <div class="alert-desc">Your portfolio hit a new all-time high</div>
+          </div>
+          <div class="alert-time">3h ago</div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Footer -->
+    <div class="panel-footer">
+      <span>Data: CoinGecko (simulated)</span>
+      <span>Updated: <span id="last-updated">--:--:--</span></span>
+    </div>
+
+  </div>
+
+  <script>
+
+    // ============================================================
+    // WALLET DETECTION & UI UPDATES
+    // ============================================================
+    
+    // 1. Helper function to figure out which wallet is connected
+    function getWalletName() {
+      const provider = window.ethereum;
+      if (!provider) return 'Connected';
+      
+      // Wallets often spoof isMetaMask, so check others first
+      if (provider.isRabby) return 'Rabby Wallet';
+      if (provider.isBraveWallet) return 'Brave Wallet';
+      if (provider.isTrust || provider.isTrustWallet) return 'Trust Wallet';
+      if (provider.isCoinbaseWallet) return 'Coinbase Wallet';
+      if (provider.isPhantom) return 'Phantom';
+      
+      // Fallback to MetaMask
+      if (provider.isMetaMask) return 'MetaMask';
+      
+      return 'Web3 Wallet';
+    }
+    
+    // ============================================================
+    // CONFIG — Edit your simulated holdings here
+    // ============================================================
+    // Coin display config (Added fallback values so the UI never breaks!)
+    const COINS = [
+      { id: 'BTC', apiId: 'bitcoin', name: 'Bitcoin', symbol: 'BTC', icon: '₿', color: '#F7931A', bg: 'rgba(247,147,26,0.12)', fallback: 96400, fallbackChg: 1.2 },
+      { id: 'ETH', apiId: 'ethereum', name: 'Ethereum', symbol: 'ETH', icon: 'Ξ', color: '#627EEA', bg: 'rgba(98,126,234,0.12)', fallback: 3450, fallbackChg: -0.5 },
+      { id: 'SOL', apiId: 'solana', name: 'Solana', symbol: 'SOL', icon: '◎', color: '#9945FF', bg: 'rgba(153,69,255,0.12)', fallback: 185, fallbackChg: 4.3 },
+      { id: 'BNB', apiId: 'binancecoin', name: 'BNB', symbol: 'BNB', icon: 'B', color: '#F3BA2F', bg: 'rgba(243,186,47,0.12)', fallback: 610, fallbackChg: 0.8 },
+      { id: 'ADA', apiId: 'cardano', name: 'Cardano', symbol: 'ADA', icon: '₳', color: '#0033AD', bg: 'rgba(0,51,173,0.15)', fallback: 0.48, fallbackChg: -1.2 },
+      { id: 'AVAX', apiId: 'avalanche-2', name: 'Avalanche', symbol: 'AVAX', icon: 'A', color: '#E84142', bg: 'rgba(232,65,66,0.12)', fallback: 42, fallbackChg: 2.1 },
+      { id: 'DOT', apiId: 'polkadot', name: 'Polkadot', symbol: 'DOT', icon: '●', color: '#E6007A', bg: 'rgba(230,0,122,0.12)', fallback: 8.5, fallbackChg: -0.3 },
+      { id: 'LINK', apiId: 'chainlink', name: 'Chainlink', symbol: 'LINK', icon: '⬡', color: '#2A5ADA', bg: 'rgba(42,90,218,0.12)', fallback: 15.2, fallbackChg: 1.5 },
+    ];
+
+    // ============================================================
+    // STATE
+    // ============================================================
+    let prices = {};
+    let changes = {}; // Store real 24h percentage changes
+    let history = {};  
+    let panelOpen = false;
+    let walletAddr = null;
+    let activeTab = 'market';
+
+    COINS.forEach(c => { history[c.id] = []; });
+
+    // ============================================================
+    // PANEL TOGGLE
+    // ============================================================
+    function togglePanel() {
+      panelOpen = !panelOpen;
+      document.getElementById('side-panel').classList.toggle('open', panelOpen);
+      document.getElementById('arrow-icon').textContent = panelOpen ? '▶' : '◀';
+    }
+
+    // ============================================================
+    // TAB SWITCHING
+    // ============================================================
+    function switchTab(name) {
+      activeTab = name;
+      document.querySelectorAll('.tab').forEach((t, i) => {
+        t.classList.toggle('active', ['market', 'portfolio', 'alerts'][i] === name);
+      });
+      document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+      document.getElementById('tab-' + name).classList.add('active');
+    }
+    
+
+    // ============================================================
+    // METAMASK WALLET CONNECTION
+    // ============================================================
+    async function connectWallet() {
+      if (!window.ethereum) {
+        alert('MetaMask not found!\nInstall it from https://metamask.io');
+        return;
+      }
+      try {
+        const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+        walletAddr = accounts[0];
+        updateWalletUI();
+        fetchEthBalance();
+      } catch (e) {
+        if (e.code === 4001) alert('Connection rejected. Please approve in MetaMask.');
+      }
+    }
+
+    async function fetchEthBalance() {
+      if (!walletAddr || !window.ethereum) return;
+      try {
+        const hex = await window.ethereum.request({
+          method: 'eth_getBalance',
+          params: [walletAddr, 'latest']
+        });
+        const eth = parseInt(hex, 16) / 1e18;
+        document.getElementById('eth-balance').textContent = eth.toFixed(4) + ' ETH';
+      } catch (e) { }
+    }
+
+    function updateWalletUI() {
+      const btn = document.getElementById('connect-btn');
+      const text = document.getElementById('btn-text');
+      if (walletAddr) {
+        const short = walletAddr.slice(0, 6) + '...' + walletAddr.slice(-4);
+        text.textContent = short;
+        btn.classList.add('connected');
+      }
+    }
+
+    // Auto-reconnect
+    window.addEventListener('load', async () => {
+      if (window.ethereum) {
+        const accs = await window.ethereum.request({ method: 'eth_accounts' });
+        if (accs.length) { walletAddr = accs[0]; updateWalletUI(); fetchEthBalance(); }
+        window.ethereum.on('accountsChanged', a => { walletAddr = a[0] || null; updateWalletUI(); fetchEthBalance(); });
+      }
+    });
+
+    // ============================================================
+    // REAL LIVE PRICE ENGINE (With Fallback Protection)
+    // ============================================================
+    async function fetchRealMarketData() {
+      const ids = COINS.map(c => c.apiId).join(',');
+      const url = `https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=${ids}&sparkline=true`;
+
+      try {
+        const response = await fetch(url);
+        
+        if (!response.ok) {
+          throw new Error(`API Blocked/Failed with status: ${response.status}`);
+        }
+        
+        const data = await response.json();
+
+        data.forEach(coinData => {
+          const localCoin = COINS.find(c => c.apiId === coinData.id);
+          if (!localCoin) return;
+
+          const id = localCoin.id;
+          prices[id] = coinData.current_price;
+          changes[id] = coinData.price_change_percentage_24h || 0;
+          
+          if (coinData.sparkline_in_7d && coinData.sparkline_in_7d.price) {
+            history[id] = coinData.sparkline_in_7d.price;
+          }
+        });
+
+        const lastUpdatedEl = document.getElementById('last-updated');
+        if (lastUpdatedEl) lastUpdatedEl.textContent = new Date().toLocaleTimeString();
+
+      } catch (error) {
+        console.warn("🚨 Using Fallback Data:", error.message);
+        
+        // If CoinGecko fails, inject the realistic fallback data instead of 0s
+        COINS.forEach(c => {
+          prices[c.id] = c.fallback;
+          changes[c.id] = c.fallbackChg;
+          
+          // Generate a smooth simulated sparkline so the UI looks great
+          if (!history[c.id] || history[c.id].length === 0) {
+            let base = c.fallback;
+            let fakeHistory = [];
+            for (let i = 0; i < 20; i++) {
+              base = base + (Math.random() - 0.5) * (base * 0.02);
+              fakeHistory.push(base);
+            }
+            history[c.id] = fakeHistory;
+          }
+        });
+
+        const lastUpdatedEl = document.getElementById('last-updated');
+        if (lastUpdatedEl) lastUpdatedEl.textContent = "Cached (Offline Mode)";
+      }
+
+      // Always render the UI, whether we used live data or fallback data
+      renderMarket();
+      renderPortfolio();
+    }
+
+    // ============================================================
+    // SPARKLINE GENERATOR
+    // ============================================================
+    function sparklineSVG(data, isUp) {
+      if (data.length < 2) return '';
+      const w = 340, h = 28;
+      const min = Math.min(...data), max = Math.max(...data);
+      const range = max - min || 1;
+      const pts = data.map((v, i) => {
+        const x = (i / (data.length - 1)) * w;
+        const y = h - ((v - min) / range) * (h - 4) - 2;
+        return `${x},${y}`;
+      }).join(' ');
+
+      const color = isUp ? '#00E676' : '#FF4560';
+      const fillPts = `0,${h} ${pts} ${w},${h}`;
+
+      return `<svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="none">
+    <defs>
+      <linearGradient id="sg-${isUp ? 'u' : 'd'}" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="${color}" stop-opacity="0.25"/>
+        <stop offset="100%" stop-color="${color}" stop-opacity="0"/>
+      </linearGradient>
+    </defs>
+    <polygon points="${fillPts}" fill="url(#sg-${isUp ? 'u' : 'd'})"/>
+    <polyline points="${pts}" fill="none" stroke="${color}" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/>
+  </svg>`;
+    }
+
+    // ============================================================
+    // RENDER MARKET TAB
+    // ============================================================
+    function formatPrice(v) {
+      if (!v) return '$0.00';
+      if (v >= 1000) return '$' + v.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+      if (v >= 1) return '$' + v.toFixed(2);
+      return '$' + v.toFixed(5);
+    }
+
+    function renderMarket() {
+      const container = document.getElementById('tab-market');
+      container.innerHTML = '';
+
+      COINS.forEach(c => {
+        const cur = prices[c.id] || 0;
+        const chg = changes[c.id] || 0;  // Use real 24h change from API
+        const isUp = chg >= 0;
+        const spark = sparklineSVG(history[c.id] || [], isUp);
+
+        const card = document.createElement('div');
+        card.className = 'crypto-card';
+        card.id = 'card-' + c.id;
+        card.innerHTML = `
+          <div class="coin-icon" style="background:${c.bg};color:${c.color}">${c.icon}</div>
+          <div class="coin-info">
+            <div class="coin-name">${c.name}</div>
+            <div class="coin-symbol">${c.symbol}</div>
+          </div>
+          <div class="coin-right">
+            <div class="coin-price" style="color:${c.color}">${formatPrice(cur)}</div>
+            <div class="coin-change ${isUp ? 'up' : 'down'}">${isUp ? '▲' : '▼'} ${Math.abs(chg).toFixed(2)}%</div>
+          </div>
+          <div class="sparkline">${spark}</div>
+        `;
+        container.appendChild(card);
+      });
+    }
+
+    // ============================================================
+    // RENDER PORTFOLIO TAB
+    // ============================================================
+    function renderPortfolio() {
+      let totalValue = 0;
+      let totalCost = 0;
+
+      const rows = Object.entries(HOLDINGS).map(([sym, amt]) => {
+        const coin = COINS.find(c => c.id === sym);
+        if (!coin) return null;
+        const cur = prices[sym] || coin.base;
+        const entry = ENTRY_PRICES[sym] || coin.base;
+        const value = cur * amt;
+        const cost = entry * amt;
+        const pnl = value - cost;
+        const pnlPct = ((value - cost) / cost) * 100;
+        totalValue += value;
+        totalCost += cost;
+        return { coin, amt, cur, value, pnl, pnlPct };
+      }).filter(Boolean);
+
+      const totalPnl = totalValue - totalCost;
+      const totalPnlPct = ((totalValue - totalCost) / totalCost) * 100;
+
+      document.getElementById('port-total').textContent =
+        '$' + totalValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+      const pnlEl = document.getElementById('port-pnl');
+      const pnlUp = totalPnl >= 0;
+      pnlEl.innerHTML = `
+    <span style="color:${pnlUp ? 'var(--green)' : 'var(--red)'}">
+      ${pnlUp ? '▲' : '▼'} ${pnlUp ? '+' : ''}$${totalPnl.toFixed(2)}
+      (${pnlUp ? '+' : ''}${totalPnlPct.toFixed(2)}%)
+    </span>
+    <span style="color:var(--muted)"> all time</span>
+  `;
+
+      const holdDiv = document.getElementById('port-holdings');
+      holdDiv.innerHTML = '';
+      rows.forEach(r => {
+        const up = r.pnl >= 0;
+        const el = document.createElement('div');
+        el.className = 'port-row';
+        el.innerHTML = `
+      <div class="coin-icon" style="background:${r.coin.bg};color:${r.coin.color};width:30px;height:30px;font-size:14px;border-radius:50%;display:flex;align-items:center;justify-content:center;">${r.coin.icon}</div>
+      <div class="pr-info">
+        <div class="pr-name">${r.coin.name}</div>
+        <div class="pr-amount">${r.amt} ${r.coin.symbol} @ ${formatPrice(ENTRY_PRICES[r.coin.id])}</div>
+      </div>
+      <div class="pr-right">
+        <div class="pr-value">$${r.value.toFixed(2)}</div>
+        <div class="pr-pnl" style="color:${up ? 'var(--green)' : 'var(--red)'}">
+          ${up ? '+' : ''}$${r.pnl.toFixed(2)} (${up ? '+' : ''}${r.pnlPct.toFixed(1)}%)
+        </div>
+      </div>
+    `;
+        holdDiv.appendChild(el);
+      });
+    }
+
+    // ============================================================
+    // START
+    // ============================================================
+    // Initial fetch on page load
+    fetchRealMarketData();
+
+    // Poll the API every 60 seconds. 
+    // IMPORTANT: CoinGecko's free tier heavily rate-limits. Polling every 2 seconds 
+    // like the simulator did will get your IP temporarily banned. 60 seconds is safe.
+    setInterval(fetchRealMarketData, 60000);
+  </script>
+  <!-- Background effects -->
+  <div class="orb orb-1"></div>
+  <div class="orb orb-2"></div>
+
+  <!-- ============================================================
+       🔤 EASY EDIT: Navigation
+       ============================================================ -->
+  <nav>
+    <div class="nav-logo">NexusChain</div> <!-- ← Change brand name -->
+    <ul class="nav-links">
+      <li><a href="#features">Features</a></li>
+      <li><a href="#how">How it works</a></li>
+      <li><a href="#pricing">Pricing</a></li>
+      <li><a href="#docs">Docs</a></li>
+    </ul>
+    <button class="nav-cta" id="walletBtn" onclick="connectWallet()">Connect Wallet</button>
+  </nav>
+
+  <main>
+
+    <!-- ============================================================
+         🌟 EASY EDIT: Hero Section
+         ============================================================ -->
+    <section id="hero">
+      <div class="hero-badge fade-up">
+        <span class="dot"></span>
+        Now live on Ethereum Mainnet <!-- ← Change badge text -->
+      </div>
+
+      <h1 class="fade-up delay-1">
+        The <span class="accent">Decentralized</span><br />
+        Infrastructure for<br />
+        <span class="accent2">Web3 Builders</span> <!-- ← Change headline -->
+      </h1>
+
+      <p class="hero-sub fade-up delay-2">
+        NexusChain gives developers the tools to build, deploy, and scale
+        decentralized applications without compromise — fast, secure, composable.
+        <!-- ← Change subheading -->
+      </p>
+
+      <div class="hero-actions fade-up delay-3">
+        <button class="btn-primary">Start Building →</button> <!-- ← Change CTA -->
+        <button class="btn-secondary">Read the Docs</button>
+      </div>
+
+      <!-- ============================================================
+           📊 EASY EDIT: Stats — change numbers and labels
+           ============================================================ -->
+      <div class="stats-bar fade-up delay-4">
+        <div class="stat">
+          <div class="stat-value">$2.4B</div>
+          <div class="stat-label">Total Value Locked</div>
+        </div>
+        <div class="stat">
+          <div class="stat-value">180K+</div>
+          <div class="stat-label">Active Wallets</div>
+        </div>
+        <div class="stat">
+          <div class="stat-value">12ms</div>
+          <div class="stat-label">Avg. Finality</div>
+        </div>
+        <div class="stat">
+          <div class="stat-value">99.98%</div>
+          <div class="stat-label">Uptime</div>
+        </div>
+      </div>
+    </section>
+
+
+    <!-- ============================================================
+         ✨ EASY EDIT: Features — add/remove cards freely
+         ============================================================ -->
+    <section id="features">
+      <p class="section-tag">Core Features</p>
+      <h2>Built for the<br />Decentralized Era</h2>
+      <p class="section-sub">Everything you need to ship production-ready dApps at scale.</p>
+
+      <div class="features-grid">
+
+        <!-- Feature Card — duplicate/edit these blocks freely -->
+        <div class="feature-card">
+          <div class="feature-icon">⚡</div>
+          <div class="feature-title">Sub-Second Finality</div>
+          <p class="feature-desc">Transactions confirm in under 100ms with our optimized consensus layer.</p>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon">🔐</div>
+          <div class="feature-title">Trustless Security</div>
+          <p class="feature-desc">Zero-knowledge proofs ensure data integrity without revealing sensitive information.
+          </p>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon">🔗</div>
+          <div class="feature-title">Cross-Chain Bridges</div>
+          <p class="feature-desc">Seamlessly move assets across 40+ networks with native bridging support.</p>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon">🧩</div>
+          <div class="feature-title">Composable Smart Contracts</div>
+          <p class="feature-desc">Modular, audited contract templates to ship faster without reinventing the wheel.</p>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon">📡</div>
+          <div class="feature-title">Real-Time Indexing</div>
+          <p class="feature-desc">Query on-chain data instantly with our hosted GraphQL and REST APIs.</p>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon">🌍</div>
+          <div class="feature-title">Decentralized Storage</div>
+          <p class="feature-desc">Integrated IPFS and Arweave for permanent, censorship-resistant content.</p>
+        </div>
+
+      </div>
+    </section>
+
+
+    <!-- ============================================================
+         🪜 EASY EDIT: How It Works — change steps
+         ============================================================ -->
+    <section id="how" style="padding: var(--section-gap) 0;">
+      <div style="padding: 56px 60px 0;">
+        <p class="section-tag">How it works</p>
+        <h2>Four Steps to Launch</h2>
+        <p class="section-sub">From zero to deployed dApp in an afternoon.</p>
+      </div>
+
+      <div class="steps">
+        <div class="step">
+          <div class="step-num">01</div>
+          <div class="step-title">Connect Wallet</div>
+          <p class="step-desc">Link any EVM-compatible wallet to authenticate and fund your developer account.</p>
+        </div>
+        <div class="step">
+          <div class="step-num">02</div>
+          <div class="step-title">Deploy Contracts</div>
+          <p class="step-desc">Use our CLI or visual editor to deploy audited contracts to any chain.</p>
+        </div>
+        <div class="step">
+          <div class="step-num">03</div>
+          <div class="step-title">Integrate APIs</div>
+          <p class="step-desc">Add indexing, storage, and bridging with just a few lines of SDK code.</p>
+        </div>
+        <div class="step">
+          <div class="step-num">04</div>
+          <div class="step-title">Go Live</div>
+          <p class="step-desc">Ship to production with monitoring, alerts, and auto-scaling built in.</p>
+        </div>
+      </div>
+    </section>
+
+
+    <!-- ============================================================
+         💰 EASY EDIT: Pricing — change plan names, prices, features
+         ============================================================ -->
+    <section id="pricing">
+      <p class="section-tag">Pricing</p>
+      <h2>Simple, On-Chain Billing</h2>
+      <p class="section-sub">Pay in USDC or ETH. No hidden fees, no lock-in.</p>
+
+      <div class="pricing-grid">
+
+        <div class="plan-card">
+          <div class="plan-name">Starter</div>
+          <div class="plan-price">Free <span>/ mo</span></div>
+          <ul class="plan-features">
+            <li>Up to 3 smart contracts</li>
+            <li>1M API requests/month</li>
+            <li>IPFS storage (1GB)</li>
+            <li>Community support</li>
+          </ul>
+          <button class="btn-secondary">Get Started</button>
+        </div>
+
+        <div class="plan-card featured">
+          <div class="plan-name">Pro ⭐</div>
+          <div class="plan-price">$99 <span>/ mo</span></div>
+          <ul class="plan-features">
+            <li>Unlimited contracts</li>
+            <li>50M API requests/month</li>
+            <li>IPFS + Arweave (100GB)</li>
+            <li>Priority support 24/7</li>
+            <li>Cross-chain bridging</li>
+          </ul>
+          <button class="btn-primary">Start Pro →</button>
+        </div>
+
+        <div class="plan-card">
+          <div class="plan-name">Enterprise</div>
+          <div class="plan-price">Custom</div>
+          <ul class="plan-features">
+            <li>SLA guarantees</li>
+            <li>Dedicated nodes</li>
+            <li>Custom indexing pipelines</li>
+            <li>Compliance & audit reports</li>
+            <li>Dedicated account manager</li>
+          </ul>
+          <button class="btn-secondary">Contact Us</button>
+        </div>
+
+      </div>
+    </section>
+
+
+    <!-- ============================================================
+         📣 EASY EDIT: CTA Banner
+         ============================================================ -->
+    <div class="cta-banner">
+      <h2>Ready to Build<br />the Future?</h2>
+      <p>Join 180,000+ builders shipping on NexusChain today.</p>
+      <button class="btn-primary" style="font-size:16px; padding: 16px 40px;">
+        Launch Your dApp →
+      </button>
+    </div>
+
+  </main>
+
+
+  <!-- ============================================================
+       🔻 EASY EDIT: Footer
+       ============================================================ -->
+  <footer>
+    <div>© 2026 NexusChain. All rights reserved.</div> <!-- ← Change year/name -->
+    <div style="display:flex; gap:24px;">
+      <a href="#" style="color:var(--color-muted); text-decoration:none;">Privacy</a>
+      <a href="#" style="color:var(--color-muted); text-decoration:none;">Terms</a>
+      <a href="#" style="color:var(--color-muted); text-decoration:none;">Twitter / X</a>
+      <a href="#" style="color:var(--color-muted); text-decoration:none;">Discord</a>
+    </div>
+  </footer>
+
+</body>
+
+</html>
